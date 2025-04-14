@@ -2,6 +2,10 @@ from fastapi import APIRouter, HTTPException
 from typing import List, Optional
 from pydantic import BaseModel
 from app.services.job_scraper.linkedin_scraper import LinkedInJobScraper
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 router = APIRouter()
 
@@ -24,15 +28,10 @@ class JobResponse(BaseModel):
 async def search_jobs(preferences: JobPreference):
     try:
         scraper = LinkedInJobScraper()
+
+        print(scraper)
         
         title_filter = " OR ".join(preferences.jobTitle)
-        
-        experience_map = {
-            "Entry Level": "0-2",
-            "Mid Level": "2-5",
-            "Senior Level": "5-10",
-            "Executive": "10+"
-        }
         
         type_map = {
             "Full-time": "FULL_TIME",
@@ -41,15 +40,26 @@ async def search_jobs(preferences: JobPreference):
             "Internship": "INTERN",
         }
         
-        experience_level_filter = ",".join([experience_map[exp] for exp in preferences.experienceLevel])
         type_filter = ",".join([type_map[job_type] for job_type in preferences.jobType])
+        
+        seniority_map = {
+            "Entry Level": "Entry level",
+            "Mid Level": "Mid-Senior level",
+            "Senior Level": "Senior level",
+            "Intern": "Internship",
+        }
+        
+        seniority_filter = ",".join([
+            seniority_map.get(exp, exp)  
+            for exp in preferences.experienceLevel
+        ])
 
-        print(title_filter,type_filter,experience_level_filter)
+        print(title_filter,type_filter,preferences, seniority_filter)
 
         
         result = scraper.search_jobs(   
         title_filter=title_filter,
-        seniority_filter=experience_level_filter,
+        seniority_filter=seniority_filter,
         remote=True,
         type_filter=type_filter
         )
