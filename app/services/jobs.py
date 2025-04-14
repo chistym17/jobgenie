@@ -7,6 +7,8 @@ from dateutil import parser
 import hashlib
 import html
 import os
+from pymongo import MongoClient
+from pymongo.errors import ConfigurationError
 
 def clean_text(text: str) -> str:
     if not text:
@@ -28,8 +30,8 @@ def generate_id(url: str) -> str:
     return hashlib.md5(url.encode('utf-8')).hexdigest()
 
 def is_engineering_job(title: str) -> bool:
-    pattern = re.compile(r'\b(engineer(ing)?|software|sde|developer|dev)\b', re.IGNORECASE)
-    return bool(pattern.search(title))
+    pattern = r'\b(?!sales\s)(engineer(ing)?|software|sde|developer|dev)\b'
+    return bool(re.search(pattern, title, re.IGNORECASE))
 
 def parse_wwr_title(title: str) -> tuple:
     company = 'Unknown'
@@ -74,7 +76,7 @@ def fetch_remoteok_jobs(existing_urls: set) -> list:
     try:
         response = requests.get('https://remoteok.com/api', timeout=10)
         response.raise_for_status()
-        data = response.json()[1:]  
+        data = response.json()[1:]
         for entry in data:
             job_date = normalize_date(entry.get('date', ''))
             if (datetime.now() - parser.parse(job_date)).days > 7:
@@ -103,6 +105,27 @@ def deduplicate_jobs(jobs: list) -> list:
             unique_jobs.append(job)
     return unique_jobs
 
+def save_to_mongodb(jobs: list):
+    try:
+        client = MongoClient("mongodb://localhost:27018/", serverSelectionTimeoutMS=5000)
+        db = client["jobs_db"]
+        collection = db["jobs"]
+        if not jobs:
+            print("No jobs to save to MongoDB")
+            return
+        for job in jobs:
+            collection.update_one(
+                {"id": job["id"]},
+                {"$set": job},
+                upsert=True
+            )
+        print(f"Saved {len(jobs)} jobs to MongoDB")
+        client.close()
+    except ConfigurationError as e:
+        print(f"MongoDB connection failed: {e}")
+    except Exception as e:
+        print(f"MongoDB save failed: {e}")
+
 def main():
     existing_urls = set()
     if os.path.exists('cleaned_jobs.json'):
@@ -115,13 +138,11 @@ def main():
     remoteok_jobs = fetch_remoteok_jobs(existing_urls)
 
     all_jobs = wwr_jobs + remoteok_jobs
-
     unique_jobs = deduplicate_jobs(all_jobs)
 
     unique_jobs.sort(key=lambda x: x['date'], reverse=True)
 
-    with open('all_jobs.json', 'w', encoding='utf-8') as f:
-        json.dump(unique_jobs, f, indent=2, ensure_ascii=False)
+    save_to_mongodb(unique_jobs)
 
     print(f"\nTotal engineering jobs fetched: {len(unique_jobs)}")
     print(f" - WWR: {len(wwr_jobs)}")
