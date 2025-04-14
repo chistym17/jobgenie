@@ -29,8 +29,8 @@ async def search_jobs(preferences: JobPreference):
     try:
         scraper = LinkedInJobScraper()
 
-        print(scraper)
-        
+        print(preferences)
+
         title_filter = " OR ".join(preferences.jobTitle)
         
         type_map = {
@@ -46,7 +46,6 @@ async def search_jobs(preferences: JobPreference):
             "Entry Level": "Entry level",
             "Mid Level": "Mid-Senior level",
             "Senior Level": "Senior level",
-            "Intern": "Internship",
         }
         
         seniority_filter = ",".join([
@@ -54,7 +53,7 @@ async def search_jobs(preferences: JobPreference):
             for exp in preferences.experienceLevel
         ])
 
-        print(title_filter,type_filter,preferences, seniority_filter)
+        print(title_filter,type_filter, seniority_filter)
 
         
         result = scraper.search_jobs(   
@@ -63,8 +62,6 @@ async def search_jobs(preferences: JobPreference):
         remote=True,
         type_filter=type_filter
         )
-
-        print(result)
         
         if not result:
             return []
