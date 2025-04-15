@@ -13,6 +13,9 @@ pydantic-settings==2.2.1
 
 # Web scraping & crawling
 requests==2.31.0
+feedparser==6.0.10
+python-dateutil==2.8.2
+pymongo==4.6.1
 
 # Background tasks
 celery==5.3.6
