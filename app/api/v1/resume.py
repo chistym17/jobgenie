@@ -4,9 +4,20 @@ from app.services.resume_parser import ResumeParser
 from app.db.models import ResumeResponse
 import tempfile
 import shutil
+from bson import ObjectId
+from datetime import datetime
+import json
 
 router = APIRouter(prefix="/resume", tags=["Resume Parsing"])
 parser = ResumeParser()
+
+def json_serial(obj):
+    """JSON serializer for objects not serializable by default json code"""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    raise TypeError ("Type %s not serializable" % type(obj))
 
 @router.post("/upload", response_model=ResumeResponse)
 async def upload_resume(file: UploadFile = File(...)):
@@ -18,11 +29,18 @@ async def upload_resume(file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, tmp)
             tmp_path = tmp.name
 
-        file_uri = parser.upload_pdf(tmp_path)
-        resume_data = parser.extract_resume_data(file_uri)
-        markdown = parser.convert_to_markdown(resume_data)
-        resume_data["markdown"] = markdown
+        resume_id = await parser.process_resume(tmp_path)
+        
+        resume_data = await parser.resumes_collection.find_one({"_id": ObjectId(resume_id)})
+        if not resume_data:
+            raise HTTPException(status_code=500, detail="Failed to retrieve saved resume data")
+            
+        resume_data["_id"] = str(resume_data["_id"])
+        
+        resume_data["created_at"] = resume_data["created_at"].isoformat()
+        resume_data["updated_at"] = resume_data["updated_at"].isoformat()
         
         return JSONResponse(content=resume_data)
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error parsing resume: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing resume: {str(e)}")

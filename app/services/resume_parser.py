@@ -4,6 +4,10 @@ from markdownify import markdownify as md
 from dotenv import load_dotenv
 import re
 import json
+from datetime import datetime
+from app.db.models import Resume
+from motor.motor_asyncio import AsyncIOMotorClient
+from bson import ObjectId
 
 load_dotenv()
 
@@ -13,6 +17,11 @@ class ResumeParser:
         if not self.api_key:
             raise ValueError("Missing GOOGLE_API_KEY in environment variables.")
         genai.configure(api_key=self.api_key)
+        
+        self.mongo_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27018")
+        self.client = AsyncIOMotorClient(self.mongo_uri)
+        self.db = self.client.jobs_db
+        self.resumes_collection = self.db.resumes
 
     def upload_pdf(self, file_path: str) -> str:
         """Uploads the resume PDF to Gemini and returns file URI."""
@@ -46,6 +55,7 @@ class ResumeParser:
             "  'preferences': {}\n"
             "}"
         )
+
     def extract_resume_data(self, file_uri: str) -> dict:
         """Sends the uploaded resume URI to Gemini with a parsing prompt and returns structured JSON."""
         prompt = self.generate_system_prompt()
@@ -77,6 +87,39 @@ class ResumeParser:
 
         except Exception as e:
             raise ValueError(f"Failed to parse response JSON: {e}\nRaw response:\n{response.text}")
+
+    async def save_to_mongodb(self, resume_data: dict):
+        """Save parsed resume data to MongoDB."""
+        resume = Resume(
+            name=resume_data.get('name', ''),
+            contact=resume_data.get('contact', {}),
+            skills=resume_data.get('skills', []),
+            education=resume_data.get('education', []),
+            experience=resume_data.get('experience', []),
+            projects=resume_data.get('projects', []),
+            certifications=resume_data.get('certifications', []),
+            preferences=resume_data.get('preferences', {}),
+            markdown=self.convert_to_markdown(resume_data),
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        
+        resume_dict = resume.dict()
+        
+        result = await self.resumes_collection.insert_one(resume_dict)
+        return str(result.inserted_id)
+
+    async def process_resume(self, file_path: str) -> str:
+        """Process a resume file and save to MongoDB."""
+        try:
+            file_uri = self.upload_pdf(file_path)
+            resume_data = self.extract_resume_data(file_uri)
+            
+            resume_id = await self.save_to_mongodb(resume_data)
+            return resume_id
+            
+        except Exception as e:
+            raise ValueError(f"Failed to process resume: {str(e)}")
 
     def convert_to_markdown(self, resume_json: dict) -> str:
         """Converts parsed resume JSON into Markdown for better display."""
