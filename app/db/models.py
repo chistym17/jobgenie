@@ -20,6 +20,7 @@ class ResumeResponse(BaseModel):
     markdown: str
 
 class Resume(BaseModel):
+    user_email: str
     id: Optional[ObjectId] = Field(None, alias='_id')
     name: str
     contact: Dict[str, Any]

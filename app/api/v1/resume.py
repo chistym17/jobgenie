@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 from fastapi.responses import JSONResponse
 from app.services.resume_parser import ResumeParser
 from app.db.models import ResumeResponse
@@ -20,7 +20,7 @@ def json_serial(obj):
     raise TypeError ("Type %s not serializable" % type(obj))
 
 @router.post("/upload", response_model=ResumeResponse)
-async def upload_resume(file: UploadFile = File(...)):
+async def upload_resume(file: UploadFile = File(...), user_email: str = Form(...)):
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
     
@@ -29,7 +29,7 @@ async def upload_resume(file: UploadFile = File(...)):
             shutil.copyfileobj(file.file, tmp)
             tmp_path = tmp.name
 
-        resume_id = await parser.process_resume(tmp_path)
+        resume_id = await parser.process_resume(tmp_path, user_email=user_email)
         
         resume_data = await parser.resumes_collection.find_one({"_id": ObjectId(resume_id)})
         if not resume_data:

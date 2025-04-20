@@ -88,9 +88,10 @@ class ResumeParser:
         except Exception as e:
             raise ValueError(f"Failed to parse response JSON: {e}\nRaw response:\n{response.text}")
 
-    async def save_to_mongodb(self, resume_data: dict):
+    async def save_to_mongodb(self, resume_data: dict, user_email: str):
         """Save parsed resume data to MongoDB."""
         resume = Resume(
+            user_email=user_email,
             name=resume_data.get('name', ''),
             contact=resume_data.get('contact', {}),
             skills=resume_data.get('skills', []),
@@ -104,18 +105,21 @@ class ResumeParser:
             updated_at=datetime.utcnow()
         )
         
-        resume_dict = resume.dict()
+        
+        resume_dict = resume.model_dump()
+
+        print(resume_dict)
         
         result = await self.resumes_collection.insert_one(resume_dict)
         return str(result.inserted_id)
 
-    async def process_resume(self, file_path: str) -> str:
+    async def process_resume(self, file_path: str,user_email: str) -> str:
         """Process a resume file and save to MongoDB."""
         try:
             file_uri = self.upload_pdf(file_path)
             resume_data = self.extract_resume_data(file_uri)
             
-            resume_id = await self.save_to_mongodb(resume_data)
+            resume_id = await self.save_to_mongodb(resume_data,user_email)
             return resume_id
             
         except Exception as e:
