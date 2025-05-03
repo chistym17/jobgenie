@@ -1,3 +1,5 @@
+
+## linkedin job scraper to fetch job data from linkedin using rapidapi--not included in v1
 import os
 import requests
 from dotenv import load_dotenv

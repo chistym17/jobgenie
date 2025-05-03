@@ -1,3 +1,4 @@
+## gemini llm resume parser to parse and save user resume data
 import os
 import google.generativeai as genai
 from markdownify import markdownify as md

@@ -1,3 +1,4 @@
+## functions to get jobs from portals,clean them, save to mongodb
 import feedparser
 import requests
 import json
