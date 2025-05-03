@@ -18,7 +18,7 @@ async def get_all_jobs():
     Get all jobs from the database
     """
     try:
-        jobs = list(collection.find({}, {'_id': 0}))
+        jobs = list(collection.find({}, {'_id': 0}).sort('date', -1))
         return jobs
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching jobs: {str(e)}")
