@@ -1,3 +1,5 @@
+## api to upload and parse users resume via gemini llm
+
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 from fastapi.responses import JSONResponse
 from app.services.resume_parser import ResumeParser

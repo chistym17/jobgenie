@@ -1,9 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1 import resume
-from app.api.v1 import job_search
 from app.api.v1 import api
-from app.api.v1 import jobs
 import uvicorn
 
 app = FastAPI(
@@ -12,7 +9,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,11 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(resume.router, prefix="/api/v1")
-app.include_router(job_search.router, prefix="/api/v1")
 app.include_router(api.router, prefix="/api/v1")
-app.include_router(jobs.router, prefix="/api/v1")
 
 @app.get("/")
 def root():

@@ -1,3 +1,5 @@
+## to manually use firecrawl and scrap job listing based on user preferences--not included in v1
+
 from fastapi import APIRouter, HTTPException
 from typing import List, Optional
 from pydantic import BaseModel
