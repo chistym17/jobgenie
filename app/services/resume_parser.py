@@ -3,6 +3,7 @@ import os
 from google import genai
 from markdownify import markdownify as md
 from dotenv import load_dotenv
+import PyPDF2
 import re
 import json
 from datetime import datetime
@@ -24,51 +25,59 @@ class ResumeParser:
         self.db = self.client.jobs_db
         self.resumes_collection = self.db.resumes
 
-    def upload_pdf(self, file_path: str) -> str:
-        """Uploads the resume PDF to Gemini and returns file URI."""
-        uploaded_file = self.genai_client.files.upload(file=file_path)
-        return uploaded_file.uri
+    def read_pdf(self, file_path: str) -> str:
+        """Reads a PDF file and returns its text content."""
+        try:
+            with open(file_path, 'rb') as file:
+                reader = PyPDF2.PdfReader(file)
+                text = ""
+                for page in reader.pages:
+                    text += page.extract_text()
+                return text
+        except Exception as e:
+            print(f"Error reading PDF: {str(e)}")
+            raise
 
-    def generate_system_prompt(self) -> str:
-        """Returns a system prompt to guide Gemini for parsing resumes."""
-        return (
-            "You are a professional resume parser. "
-            "Extract the following fields from the resume provided as a PDF file:\n\n"
-            "- Full Name\n"
-            "- Contact Information (Phone, Email, LinkedIn if available)\n"
-            "- Skills (technical and soft)\n"
-            "- Education (with degrees, institutes, years)\n"
-            "- Work Experience (position, company, description, duration)\n"
-            "- Projects (title, tech stack, description)\n"
-            "- Certifications (if any)\n"
-            "- Job Preferences (location, remote/on-site, role, etc.)\n\n"
-            "Respond in the following structured JSON format:\n"
-            "{\n"
-            "  'name': '',\n"
-            "  'contact': {\n"
-            "     'email': '', 'phone': '', 'linkedin': ''\n"
-            "  },\n"
-            "  'skills': [],\n"
-            "  'education': [],\n"
-            "  'experience': [],\n"
-            "  'projects': [],\n"
-            "  'certifications': [],\n"
-            "  'preferences': {}\n"
-            "}"
-        )
+    def extract_resume_data(self, file_text: str) -> dict:
+        """Extracts resume data from a PDF file using Gemini."""
+        
+        prompt = f"""You are a professional resume parser. Please analyze the following resume text and extract the relevant information:
 
-    def extract_resume_data(self, file_uri: str) -> dict:
-        """Sends the uploaded resume URI to Gemini with a parsing prompt and returns structured JSON."""
-        prompt = self.generate_system_prompt()
+ Resume Text:
+{file_text}
+
+Extract the following fields:
+- Full Name
+- Contact Information (Phone, Email, LinkedIn if available)
+- Skills (technical and soft)
+- Education (with degrees, institutes, years)
+- Work Experience (position, company, description, duration)
+- Projects (title, tech stack, description)
+- Certifications (if any)
+- Job Preferences (location, remote/on-site, role, etc.)
+
+Respond in the following structured JSON format:
+{{
+  'name': '',
+  'contact': {{
+     'email': '', 'phone': '', 'linkedin': ''
+  }},
+  'skills': [],
+  'education': [],
+  'experience': [],
+  'projects': [],
+  'certifications': [],
+  'preferences': {{}}
+}}
+"""
 
         response = self.genai_client.models.generate_content(
             model="gemini-2.0-flash",
             contents=[
-                file_uri,
-                "\n\n",
                 prompt
             ]
         )
+
 
         try:
             response_text = response.text.strip()
@@ -115,8 +124,8 @@ class ResumeParser:
     async def process_resume(self, file_path: str,user_email: str) -> str:
         """Process a resume file and save to MongoDB."""
         try:
-            file_uri = self.upload_pdf(file_path)
-            resume_data = self.extract_resume_data(file_uri)
+            file_text = self.read_pdf(file_path)
+            resume_data = self.extract_resume_data(file_text)
             
             resume_id = await self.save_to_mongodb(resume_data,user_email)
             return resume_id

@@ -31,3 +31,4 @@ protobuf
 pydantic[email]
 
 google-genai
+PyPDF2
