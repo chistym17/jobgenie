@@ -108,8 +108,6 @@ class ResumeParser:
         
         
         resume_dict = resume.model_dump()
-
-        print(resume_dict)
         
         result = await self.resumes_collection.insert_one(resume_dict)
         return str(result.inserted_id)

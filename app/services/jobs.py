@@ -10,6 +10,8 @@ import html
 import os
 from pymongo import MongoClient
 from pymongo.errors import ConfigurationError
+from dotenv import load_dotenv
+load_dotenv()
 
 def clean_text(text: str) -> str:
     if not text:
@@ -108,7 +110,8 @@ def deduplicate_jobs(jobs: list) -> list:
 
 def save_to_mongodb(jobs: list):
     try:
-        client = MongoClient("mongodb://localhost:27018/", serverSelectionTimeoutMS=5000)
+
+        client = MongoClient(os.getenv("MONGODB_URI"), serverSelectionTimeoutMS=5000)
         db = client["jobs_db"]
         collection = db["jobs"]
         if not jobs:

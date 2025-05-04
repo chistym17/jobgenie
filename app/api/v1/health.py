@@ -8,7 +8,7 @@ load_dotenv()
 
 router = APIRouter()
 
-client = MongoClient(os.getenv('MONGODB_URI', 'mongodb://localhost:27018/'))
+client = MongoClient(os.getenv('MONGODB_URI'))
 
 def check_mongodb_connection():
     try:
