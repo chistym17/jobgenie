@@ -1,6 +1,6 @@
 ## gemini llm resume parser to parse and save user resume data
 import os
-import google.generativeai as genai
+from google import genai
 from markdownify import markdownify as md
 from dotenv import load_dotenv
 import re
@@ -17,7 +17,7 @@ class ResumeParser:
         self.api_key = os.getenv("GOOGLE_API_KEY")
         if not self.api_key:
             raise ValueError("Missing GOOGLE_API_KEY in environment variables.")
-        genai.configure(api_key=self.api_key)
+        self.genai_client = genai.Client(api_key=self.api_key)
         
         self.mongo_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27018")
         self.client = AsyncIOMotorClient(self.mongo_uri)
@@ -26,7 +26,7 @@ class ResumeParser:
 
     def upload_pdf(self, file_path: str) -> str:
         """Uploads the resume PDF to Gemini and returns file URI."""
-        uploaded_file = genai.upload_file(path=file_path, display_name="Resume")
+        uploaded_file = self.genai_client.files.upload(file=file_path)
         return uploaded_file.uri
 
     def generate_system_prompt(self) -> str:
@@ -61,12 +61,12 @@ class ResumeParser:
         """Sends the uploaded resume URI to Gemini with a parsing prompt and returns structured JSON."""
         prompt = self.generate_system_prompt()
 
-        model = genai.GenerativeModel("gemini-2.0-flash")
-
-        response = model.generate_content(
+        response = self.genai_client.models.generate_content(
+            model="gemini-2.0-flash",
             contents=[
-                {"role": "user", "parts": [{"text": prompt}]},
-                {"role": "user", "parts": [{"file_data": {"file_uri": file_uri}}]}
+                file_uri,
+                "\n\n",
+                prompt
             ]
         )
 
