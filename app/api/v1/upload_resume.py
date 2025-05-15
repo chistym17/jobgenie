@@ -10,6 +10,7 @@ import shutil
 from bson import ObjectId
 from datetime import datetime
 import json
+from typing import Dict, Any
 
 router = APIRouter(prefix="/resume", tags=["Resume Parsing"])
 parser = ResumeParser()
@@ -22,8 +23,8 @@ def json_serial(obj):
         return str(obj)
     raise TypeError ("Type %s not serializable" % type(obj))
 
-@router.post("/upload", response_model=ResumeResponse)
-async def upload_resume(file: UploadFile = File(...), user_email: str = Form(...)):
+@router.post("/upload")
+async def upload_resume(file: UploadFile = File(...), user_email: str = Form(...)) -> Dict[str, Any]:
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
     
@@ -32,13 +33,9 @@ async def upload_resume(file: UploadFile = File(...), user_email: str = Form(...
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             shutil.copyfileobj(file.file, tmp)
             tmp_path = tmp.name
-            print(f"Temporary file created at: {tmp_path}")
 
-        # Process the resume
-        print(f"Processing resume with path: {tmp_path}")
-        resume_id = await parser.process_resume(tmp_path, user_email=user_email)
+        resume_id, task_id = await parser.process_resume(tmp_path, user_email=user_email)
         
-        # Clean up the temporary file
         try:
             os.unlink(tmp_path)
             print(f"Temporary file cleaned up: {tmp_path}")
@@ -50,11 +47,16 @@ async def upload_resume(file: UploadFile = File(...), user_email: str = Form(...
             raise HTTPException(status_code=500, detail="Failed to retrieve saved resume data")
             
         resume_data["_id"] = str(resume_data["_id"])
-        
         resume_data["created_at"] = resume_data["created_at"].isoformat()
         resume_data["updated_at"] = resume_data["updated_at"].isoformat()
         
-        return JSONResponse(content=resume_data)
+        response_data = {
+            "resume": resume_data,
+            "task_id": task_id,
+            "message": "Resume uploaded and processing started"
+        }
+        
+        return JSONResponse(content=response_data)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing resume: {str(e)}")

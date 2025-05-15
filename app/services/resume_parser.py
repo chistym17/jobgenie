@@ -10,7 +10,7 @@ from datetime import datetime
 from app.db.models import Resume
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
-
+from app.utils.startembeddertask import start_embedder_task
 load_dotenv()
 
 class ResumeParser:
@@ -128,7 +128,12 @@ Respond in the following structured JSON format:
             resume_data = self.extract_resume_data(file_text)
             
             resume_id = await self.save_to_mongodb(resume_data,user_email)
-            return resume_id
+
+            response = start_embedder_task(user_email)
+            task_id = response.get("task_id")
+            
+
+            return resume_id,task_id
             
         except Exception as e:
             raise ValueError(f"Failed to process resume: {str(e)}")
